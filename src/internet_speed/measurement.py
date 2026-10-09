@@ -15,10 +15,13 @@ RETRY_BACKOFF_SECONDS = 0.5
 
 
 class MeasurementError(RuntimeError):
-    """Raised when a download cannot be completed successfully."""
+    """Ошибка, возникающая, когда загрузку не удалось выполнить успешно."""
 
 
 def _parse_content_length(value: str | None) -> int | None:
+    """Разбирает значение заголовка ``Content-Length``; возвращает ``None``,
+    если заголовок отсутствует или некорректен.
+    """
     if value is None:
         return None
     try:
@@ -35,6 +38,14 @@ def download_once(
     chunk_size: int = DEFAULT_CHUNK_SIZE,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> RequestSample:
+    """Скачивает ``url`` один раз и измеряет полный цикл запрос-ответ.
+
+    Тело читается потоково кусками по ``chunk_size``, чтобы большие ответы не
+    буферизовались в памяти. Заголовок ``Accept-Encoding: identity`` гарантирует,
+    что счётчик байт совпадает с реально переданными байтами. При статусе не 2xx
+    поднимает ``MeasurementError``; сетевые ошибки пробрасываются вызывающему для
+    повторной попытки.
+    """
     start = time.perf_counter()
     response = session.get(
         url,
@@ -63,6 +74,13 @@ def download_once(
 
 
 def aggregate(samples: list[RequestSample]) -> SpeedResult:
+    """Преобразует отдельные сэмплы запросов в итоги, средние и пропускную способность.
+
+    Скорость считается взвешенной по времени (``total_bytes / total_seconds``),
+    как в распространённых speedtest-инструментах. Если ``Content-Length``
+    расходится с реально полученным числом байт, это сохраняется как
+    предупреждение в результате.
+    """
     count = len(samples)
     total_bytes = sum(sample.bytes_downloaded for sample in samples)
     total_seconds = sum(sample.elapsed_seconds for sample in samples)
@@ -107,6 +125,13 @@ def _download_with_retries(
     retries: int,
     sleep: Callable[[float], None],
 ) -> RequestSample:
+    """Выполняет ``download_once`` с повторными попытками при сетевых сбоях.
+
+    Повторяются только транспортные ошибки ``requests`` (таймауты, обрыв
+    соединения); ответ с кодом не 2xx приводит к ``MeasurementError`` из
+    ``download_once`` и пробрасывается сразу. Задержка между попытками растёт
+    линейно.
+    """
     attempts = retries + 1
     last_error: Exception | None = None
     for attempt in range(attempts):
@@ -139,6 +164,14 @@ def measure_speed(
     session_factory: Callable[[], Any] = requests.Session,
     sleep: Callable[[float], None] = time.sleep,
 ) -> SpeedResult:
+    """Измеряет пропускную способность загрузки по ``url`` за ``n`` запросов.
+
+    Создаётся одна keep-alive сессия (или переиспользуется переданная в
+    ``session``), поэтому соединение общее для всех запросов. Если задан
+    ``warmup``, один запрос резолвит DNS и открывает соединение, а затем
+    отбрасывается перед ``n`` измеряемыми запросами. Возвращает агрегированный
+    ``SpeedResult``.
+    """
     owns_session = session is None
     if session is None:
         session = session_factory()

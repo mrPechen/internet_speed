@@ -8,6 +8,7 @@ from internet_speed.models import RequestSample, SpeedResult
 
 
 def make_result() -> SpeedResult:
+    """Собирает предопределённый SpeedResult для тестов рендера и main."""
     return SpeedResult(
         samples=[RequestSample(1, 200, 1_000_000, 0.5, 1_000_000)],
         total_bytes=1_000_000,
@@ -22,6 +23,7 @@ def make_result() -> SpeedResult:
 
 
 def test_parse_args_defaults():
+    """Проверяет значения аргументов по умолчанию."""
     args = cli.parse_args(["http://example.com/big.jpg"])
 
     assert args.url == "http://example.com/big.jpg"
@@ -33,6 +35,7 @@ def test_parse_args_defaults():
 
 
 def test_parse_args_overrides():
+    """Проверяет, что флаги командной строки переопределяют значения по умолчанию."""
     args = cli.parse_args(
         [
             "http://example.com/big.jpg",
@@ -56,11 +59,13 @@ def test_parse_args_overrides():
 
 
 def test_parse_args_requires_url():
+    """Проверяет, что при отсутствии URL argparse завершает работу с ошибкой."""
     with pytest.raises(SystemExit):
         cli.parse_args([])
 
 
 def test_render_contains_summary():
+    """Проверяет, что отчёт содержит цель, заголовок и итоговую скорость."""
     text = cli.render(
         make_result(),
         url="http://example.com/big.jpg",
@@ -76,6 +81,7 @@ def test_render_contains_summary():
 
 
 def test_main_success(monkeypatch, capsys):
+    """Проверяет успешный путь main: код 0 и печать отчёта."""
     monkeypatch.setattr(cli, "measure_speed", lambda *a, **k: make_result())
 
     code = cli.main(["http://example.com/big.jpg"])
@@ -86,7 +92,10 @@ def test_main_success(monkeypatch, capsys):
 
 
 def test_main_measurement_error(monkeypatch, capsys):
+    """Проверяет, что ошибка замера даёт код 1 и сообщение в stderr."""
+
     def boom(*args, **kwargs):
+        """Имитирует сбой измерения, поднимая MeasurementError."""
         raise MeasurementError("connection refused")
 
     monkeypatch.setattr(cli, "measure_speed", boom)

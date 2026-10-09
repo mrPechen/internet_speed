@@ -15,6 +15,7 @@ from internet_speed.models import RequestSample
 
 
 def test_download_once_counts_streamed_bytes(monkeypatch):
+    """Проверяет, что суммируются все прочитанные из тела байты и время запроса."""
     response = FakeResponse(
         [b"a" * 1000, b"b" * 1500],
         headers={"Content-Length": "2500"},
@@ -32,6 +33,7 @@ def test_download_once_counts_streamed_bytes(monkeypatch):
 
 
 def test_download_once_sends_identity_encoding(monkeypatch):
+    """Проверяет, что запрос идёт потоково и с Accept-Encoding: identity."""
     session = FakeSession([FakeResponse([b"x"])])
     monkeypatch.setattr(measurement.time, "perf_counter", fake_clock([0.0, 0.1]))
 
@@ -42,6 +44,7 @@ def test_download_once_sends_identity_encoding(monkeypatch):
 
 
 def test_download_once_raises_on_non_2xx(monkeypatch):
+    """Проверяет, что статус не 2xx приводит к MeasurementError."""
     session = FakeSession([FakeResponse([b"x"], status_code=404)])
     monkeypatch.setattr(measurement.time, "perf_counter", fake_clock([0.0, 0.1]))
 
@@ -50,6 +53,7 @@ def test_download_once_raises_on_non_2xx(monkeypatch):
 
 
 def test_aggregate_computes_averages_and_speed():
+    """Проверяет расчёт итогов, средних и десятичных единиц скорости."""
     samples = [
         RequestSample(1, 200, 1_000_000, 1.0, 1_000_000),
         RequestSample(2, 200, 2_000_000, 2.0, 2_000_000),
@@ -68,6 +72,7 @@ def test_aggregate_computes_averages_and_speed():
 
 
 def test_aggregate_warns_on_content_length_mismatch():
+    """Проверяет, что расхождение Content-Length попадает в предупреждения."""
     samples = [
         RequestSample(1, 200, 100, 0.1, content_length=200),
     ]
@@ -79,6 +84,7 @@ def test_aggregate_warns_on_content_length_mismatch():
 
 
 def test_measure_speed_discards_warmup(monkeypatch):
+    """Проверяет, что warmup выполняется, но не попадает в статистику."""
     session = FakeSession([FakeResponse([b"w" * 10]), FakeResponse([b"m" * 100])])
     monkeypatch.setattr(
         measurement.time,
@@ -94,6 +100,7 @@ def test_measure_speed_discards_warmup(monkeypatch):
 
 
 def test_measure_speed_skips_warmup_when_disabled(monkeypatch):
+    """Проверяет, что при warmup=False делается ровно n запросов."""
     session = FakeSession([FakeResponse([b"m" * 100])])
     monkeypatch.setattr(
         measurement.time, "perf_counter", fake_clock([0.0, 0.1, 0.1, 0.2])
@@ -106,6 +113,7 @@ def test_measure_speed_skips_warmup_when_disabled(monkeypatch):
 
 
 def test_measure_speed_computes_decimal_units(monkeypatch):
+    """Проверяет перевод байт/с в МБ/с и Мбит/с по десятичной шкале."""
     session = FakeSession([FakeResponse([b"w" * 10]), FakeResponse([b"m" * 500_000])])
     monkeypatch.setattr(
         measurement.time, "perf_counter", fake_clock([0.0, 0.1, 0.1, 0.6])
@@ -120,6 +128,7 @@ def test_measure_speed_computes_decimal_units(monkeypatch):
 
 
 def test_measure_speed_retries_transient_failures():
+    """Проверяет, что сетевая ошибка повторяется и замер в итоге проходит."""
     session = FakeSession(
         [requests.exceptions.ConnectionError("boom"), FakeResponse([b"x" * 50])]
     )
@@ -138,6 +147,7 @@ def test_measure_speed_retries_transient_failures():
 
 
 def test_measure_speed_raises_after_retries_exhausted():
+    """Проверяет, что после исчерпания попыток поднимается MeasurementError."""
     session = FakeSession([requests.exceptions.ConnectionError("boom")])
 
     with pytest.raises(MeasurementError):

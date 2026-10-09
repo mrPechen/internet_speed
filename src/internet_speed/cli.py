@@ -17,6 +17,7 @@ _SEPARATOR = "-" * 48
 
 
 def _human_bytes(num_bytes: float) -> str:
+    """Форматирует число байт десятичными единицами (по 1000) для вывода."""
     units = ("B", "KB", "MB", "GB", "TB")
     value = float(num_bytes)
     unit_index = 0
@@ -29,6 +30,7 @@ def _human_bytes(num_bytes: float) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Создаёт argparse-парсер с аргументами командной строки утилиты."""
     parser = argparse.ArgumentParser(
         prog="internet-speed",
         description="Measure download throughput against a URL.",
@@ -68,6 +70,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Разбирает ``argv`` и проверяет границы значений; при ошибке завершает
+    работу с кодом 2.
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -90,6 +95,7 @@ def render(
     warmup: bool,
     chunk_size: int,
 ) -> str:
+    """Собирает текстовый отчёт по результату измерения для печати в консоль."""
     warmup_label = "yes" if warmup else "no"
     lines = [
         f"Target: {url}",
@@ -122,6 +128,7 @@ def render(
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Точка входа CLI: разбирает аргументы, запускает измерение и печатает отчёт."""
     args = parse_args(argv)
     try:
         result = measure_speed(

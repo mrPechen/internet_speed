@@ -42,4 +42,5 @@ python -m internet_speed <URL>
 - Follow test-driven development: write a failing test first, then the minimal
   implementation, then refactor.
 - Keep the CLI thin; put computation in `measurement.py`.
-- Never add comments that restate the code.
+- Every function has a docstring in Russian describing its purpose, arguments
+  and return value. Do not add inline comments that merely restate the code.
