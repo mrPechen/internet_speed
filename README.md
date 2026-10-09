@@ -1,66 +1,67 @@
 # internet-speed
 
-A small console utility that measures download throughput against a URL. It
-performs a fixed number of sequential HTTP requests, waits for each response,
-and reports the average request time, the total downloaded volume, and the
-resulting speed in MB/s (and Mbit/s).
+Консольная утилита для замера скорости скачивания по указанному адресу. Она
+выполняет фиксированное число последовательных HTTP-запросов, дожидается каждого
+ответа и выводит среднее время запроса, общий объём скачанных данных и итоговую
+скорость в МБ/с (и Мбит/с).
 
-## Features
+## Возможности
 
-- sequential HTTP requests (10 by default), timed and summed per request;
-- a warmup request that establishes the connection and is excluded from stats;
-- per-request and aggregate reporting: bytes, time, MB/s;
-- retries with backoff on transient network failures;
-- no state, no config files — one URL in, a report out.
+- последовательные HTTP-запросы (по умолчанию 10), с замером времени и объёма
+  каждого;
+- warmup-запрос, который устанавливает соединение и не учитывается в статистике;
+- отчёт по каждому запросу и итог: байты, время, МБ/с;
+- повторы с задержкой при временных сетевых сбоях;
+- без состояния и конфигов — на входе адрес, на выходе отчёт.
 
-## Requirements
+## Требования
 
 - Python 3.11+
-- [`requests`](https://requests.readthedocs.io/) (installed automatically)
+- [`requests`](https://requests.readthedocs.io/) (ставится автоматически)
 
-## Installation
+## Установка
 
-With [uv](https://docs.astral.sh/uv/):
+Через [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv sync
 ```
 
-With pip:
+Через pip:
 
 ```bash
 python -m pip install -e .
 ```
 
-## Usage
+## Использование
 
 ```bash
-# install a console script
+# консольная команда
 internet-speed <URL>
 
-# or run the module directly
+# или запуск модуля напрямую
 python -m internet_speed <URL>
 ```
 
-`URL` is any address that serves a reasonably large payload — a big image, a
-video segment, or a download endpoint. For example:
+`URL` — любой адрес, отдающий достаточно большой ответ: крупная картинка,
+фрагмент видео или эндпоинт выгрузки. Например:
 
 ```bash
 internet-speed "https://speed.cloudflare.com/__down?bytes=10000000"
 python -m internet_speed "https://picsum.photos/4000/4000" -n 5
 ```
 
-### Options
+### Параметры
 
-| Option           | Default | Description                              |
-| ---------------- | ------- | ---------------------------------------- |
-| `-n`, `--requests` | `10`    | number of measured requests               |
-| `--chunk-size`   | `65536` | streaming chunk size in bytes             |
-| `--timeout`      | `30`    | per-request timeout in seconds            |
-| `--no-warmup`    | off     | skip the warmup request                   |
-| `--retries`      | `2`     | retries per failed request (with backoff) |
+| Параметр           | По умолчанию | Описание                                  |
+| ------------------ | ------------ | ----------------------------------------- |
+| `-n`, `--requests` | `10`         | число измеряемых запросов                 |
+| `--chunk-size`     | `65536`      | размер чанка потокового чтения в байтах   |
+| `--timeout`        | `30`         | таймаут одного запроса в секундах         |
+| `--no-warmup`      | выключено    | не делать warmup-запрос                   |
+| `--retries`        | `2`          | повторов на неудачный запрос (с задержкой)|
 
-### Example output
+### Пример вывода
 
 ```
 Target: https://speed.cloudflare.com/__down?bytes=3000000
@@ -76,44 +77,43 @@ Average request:  3.000 MB in 0.13 s
 Download speed:   22.66 MB/s  (181.25 Mbit/s)
 ```
 
-Exit codes: `0` on success, `2` for invalid arguments, `1` for a failed
-measurement.
+Коды выхода: `0` — успех, `2` — некорректные аргументы, `1` — замер не удался.
 
-## How the measurement works
+## Как устроен замер
 
-The methodology follows the hygiene used by common speedtest tools:
+Методика повторяет гигиену, принятую в распространённых speedtest-инструментах:
 
-1. A **warmup** request resolves DNS and opens the TCP/TLS connection, which is
-   then reused through a single keep-alive session. The warmup is not counted.
-2. Each measured request streams the response body and times the full
-   request/response cycle with a monotonic clock.
-3. Only bytes actually transferred are counted: the client sends
-   `Accept-Encoding: identity` so the response is not decompressed before
-   counting.
-4. Speed is a time-weighted throughput: `total_bytes / total_seconds`.
-5. `Content-Length`, when present, is compared against the received byte count
-   and a mismatch is reported as a warning.
+1. **Warmup**-запрос резолвит DNS и открывает TCP/TLS-соединение, которое затем
+   переиспользуется через одну keep-alive сессию. В статистику он не попадает.
+2. Каждый измеряемый запрос читает тело потоково, а таймер (монотонные часы)
+   замеряет полный цикл запрос-ответ.
+3. Считаются только реально переданные байты: клиент отправляет
+   `Accept-Encoding: identity`, поэтому ответ не распаковывается до подсчёта.
+4. Скорость — это взвешенная по времени пропускная способность:
+   `total_bytes / total_seconds`.
+5. `Content-Length`, если он есть, сравнивается с числом полученных байт, и
+   расхождение выводится как предупреждение.
 
-### Units
+### Единицы измерения
 
-Units are decimal, matching network speed conventions:
+Единицы десятичные, как принято для сетевой скорости:
 
-- `MB/s = bytes_per_second / 1_000_000`
-- `Mbit/s = bytes_per_second * 8 / 1_000_000`
+- `МБ/с = байт_в_секунду / 1_000_000`
+- `Мбит/с = байт_в_секунду * 8 / 1_000_000`
 
-## Limitations
+## Ограничения
 
-- The result is limited by the remote server, the network path, and the
-  request timeout — it is not a controlled throughput benchmark.
-- Requests are sequential by design, so a single connection may not saturate a
-  very high-bandwidth link.
-- No upload, latency, or jitter measurement.
+- Результат ограничен удалённым сервером, сетевым маршрутом и таймаутом запроса —
+  это не контролируемый бенчмарк пропускной способности.
+- Запросы последовательные по дизайну, поэтому одно соединение может не
+  насытить канал очень высокой пропускной способности.
+- Нет замера отдачи, задержки и джиттера.
 
-## Development
+## Разработка
 
 ```bash
 uv sync
-uv run ruff check .      # lint
-uv run ruff format .     # format
-uv run pytest            # tests (no network access required)
+uv run ruff check .      # линтер
+uv run ruff format .     # форматирование
+uv run pytest            # тесты (без доступа к сети)
 ```
