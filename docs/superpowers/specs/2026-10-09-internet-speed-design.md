@@ -34,6 +34,9 @@ The approach follows the hygiene used by common speedtest tools:
 - Response status is validated (2xx required) and `Content-Length`, when
   present, is compared against the downloaded byte count; a mismatch is
   reported as a warning.
+- `Content-Type` is inspected: when the URL serves an HTML page rather than a
+  downloadable file, the run still reports numbers but adds a warning that the
+  measurement is not meaningful.
 
 ## Architecture
 
@@ -71,7 +74,7 @@ cli.main(argv)
    sleep=time.sleep) -> SpeedResult`
 - `aggregate(samples) -> SpeedResult`
 - `RequestSample(index, status_code, bytes_downloaded, elapsed_seconds,
-   content_length)`
+   content_length, content_type)`
 - `SpeedResult(samples, total_bytes, total_seconds, average_bytes,
    average_seconds, bytes_per_second, megabytes_per_second,
    megabits_per_second, warnings)`

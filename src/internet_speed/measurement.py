@@ -30,6 +30,14 @@ def _parse_content_length(value: str | None) -> int | None:
         return None
 
 
+def _is_html_content_type(value: str | None) -> bool:
+    """Проверяет, что MIME-тип ответа относится к HTML-странице."""
+    if not value:
+        return False
+    media_type = value.split(";", 1)[0].strip().lower()
+    return media_type in {"text/html", "application/xhtml+xml"}
+
+
 def download_once(
     session: Any,
     url: str,
@@ -70,6 +78,7 @@ def download_once(
         bytes_downloaded=total,
         elapsed_seconds=elapsed,
         content_length=content_length,
+        content_type=response.headers.get("Content-Type"),
     )
 
 
@@ -100,6 +109,13 @@ def aggregate(samples: list[RequestSample]) -> SpeedResult:
                 f"{sample.content_length} != downloaded "
                 f"{sample.bytes_downloaded} bytes"
             )
+
+    if samples and all(_is_html_content_type(s.content_type) for s in samples):
+        warnings.append(
+            "the URL returned "
+            f"{samples[0].content_type}, i.e. a web page rather than a "
+            "downloadable file; the measured speed is not meaningful"
+        )
 
     return SpeedResult(
         samples=list(samples),

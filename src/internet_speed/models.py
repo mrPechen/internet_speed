@@ -12,6 +12,7 @@ class RequestSample:
     bytes_downloaded: int
     elapsed_seconds: float
     content_length: int | None = None
+    content_type: str | None = None
 
     @property
     def megabytes_per_second(self) -> float:

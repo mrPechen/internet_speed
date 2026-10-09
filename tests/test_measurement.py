@@ -52,6 +52,18 @@ def test_download_once_raises_on_non_2xx(monkeypatch):
         download_once(session, "http://example.com/missing")
 
 
+def test_download_once_captures_content_type(monkeypatch):
+    """Проверяет, что тип содержимого ответа сохраняется в сэмпле."""
+    session = FakeSession(
+        [FakeResponse([b"x"], headers={"Content-Type": "image/jpeg"})]
+    )
+    monkeypatch.setattr(measurement.time, "perf_counter", fake_clock([0.0, 0.1]))
+
+    sample = download_once(session, "http://example.com/x")
+
+    assert sample.content_type == "image/jpeg"
+
+
 def test_aggregate_computes_averages_and_speed():
     """Проверяет расчёт итогов, средних и десятичных единиц скорости."""
     samples = [
@@ -81,6 +93,42 @@ def test_aggregate_warns_on_content_length_mismatch():
 
     assert len(result.warnings) == 1
     assert "#1" in result.warnings[0]
+
+
+def test_aggregate_warns_on_html_page():
+    """Проверяет, что HTML-ответ помечается как веб-страница, а не файл."""
+    samples = [
+        RequestSample(
+            1,
+            200,
+            87_000,
+            0.05,
+            content_length=87_000,
+            content_type="text/html; charset=UTF-8",
+        ),
+    ]
+
+    result = aggregate(samples)
+
+    assert any("web page" in warning for warning in result.warnings)
+
+
+def test_aggregate_does_not_warn_for_binary_content():
+    """Проверяет, что для бинарного файла предупреждения о веб-странице нет."""
+    samples = [
+        RequestSample(
+            1,
+            200,
+            1_000_000,
+            0.5,
+            content_length=1_000_000,
+            content_type="image/jpeg",
+        ),
+    ]
+
+    result = aggregate(samples)
+
+    assert result.warnings == []
 
 
 def test_measure_speed_discards_warmup(monkeypatch):
